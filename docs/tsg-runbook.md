@@ -28,3 +28,9 @@ sudo nginx -t
 # Restart Nginx and TSG target services to apply changes
 sudo systemctl restart ace.target nginx
 ```
+
+### ⚠️ Troubleshooting: Daemon Failure During Hardening
+When enabling `server_tokens off;`, the Nginx daemon may fail to restart, throwing a systemd control process error (`failed because the control process exited with error code`).
+
+* **Root Cause:** Accidental syntax typos or a missing trailing semicolon (`;`) inside `/etc/nginx/conf.d/redirect.conf`. Nginx strictly requires a trailing semicolon for every configuration directive; commenting it out bypasses the parser, but uncommenting it activates the syntax check, causing a process crash if invalid.
+* **Best Practice:** Never bypass `sudo nginx -t`. Always ensure the test returns a `successful` flag before triggering a full service restart to prevent web server downtime.
