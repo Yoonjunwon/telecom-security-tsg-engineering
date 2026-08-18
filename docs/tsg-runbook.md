@@ -32,7 +32,11 @@ sudo systemctl restart ace.target nginx
 ### ⚠️ Troubleshooting: Daemon Failure During Hardening
 When enabling `server_tokens off;`, the Nginx daemon may fail to restart, throwing a systemd control process error (`failed because the control process exited with error code`).
 
-* **Root Cause:** Accidental syntax typos or a missing trailing semicolon (`;`) inside `/etc/nginx/conf.d/redirect.conf`. Nginx strictly requires a trailing semicolon for every configuration directive; commenting it out bypasses the parser, but uncommenting it activates the syntax check, causing a process crash if invalid.
+* **Root Cause & Vendor Configuration Defect:** 
+  * In the default vendor-provided file (`/etc/nginx/conf.d/redirect.conf`), the directives `server_tokens off;` and `limit_req_zone` were placed outside of any structural blocks (Global Space / Out of Context). 
+  * Nginx parser strictly isolates directives; `server_tokens` must reside inside `http`, `server`, or `location` contexts, and `limit_req_zone` belongs exclusively to the `http` context. Uncommenting it in its raw state triggers an immediate parser failure (`invalid context`).
+* **Resolution (Context Remediation):** 
+  * Remediated the vendor configuration by relocating the `server_tokens off;` directive inside the valid `server { ... }` blocks or the global `/etc/nginx/nginx.conf` (`http { ... }` block) instead of blindly relying on the default vendor comment-out bypass.
 * **Best Practice:** Never bypass `sudo nginx -t`. Always ensure the test returns a `successful` flag before triggering a full service restart to prevent web server downtime.
 
 
