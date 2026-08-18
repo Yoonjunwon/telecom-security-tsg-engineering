@@ -26,3 +26,11 @@ This repository contains practical technical knowledge and operational guideline
 * **Context:** The onboarding process for GateONE (the company's core systems access control solution) lacked formal documentation, relying entirely on verbal knowledge transfers. This gap caused newly joined engineers to spend an average of 6 months undergoing trial-and-error before handling tasks independently.
 * **Action:** To prevent team resource drain, I took the initiative to gather recurring queries, frequent error log patterns, and infrastructure-specific CLI commands, structuring them into a standardized technical runbook.
 * **Impact:** Established a self-service documentation environment where new hires can diagnose issues independently before escalating to seniors. This reduced repetitive basic queries, minimized interruptions to senior engineering workflows, and accelerated the overall onboarding timeline.
+
+
+## 📁 Detailed Engineering Handbooks (Internal Deep-Dive)
+* [ACE Telecom Vulnerability Attack Simulation Guide](./docs/ace-attack-simulation.md)
+* [TSG Firewalls Rule Config & Network Infrastructure Tuning](./docs/tsg-rule-config.md)
+
+
+
