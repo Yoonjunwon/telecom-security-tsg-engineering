@@ -1,0 +1,53 @@
+# [Troubleshooting] SS7 PCAP 재전송 시 방화벽(FW) 미검출 원인 분석
+
+## 1. 개요
+* **상황:** `tcprewrite`를 이용해 IP 및 SCTP 포트를 수정하고 `tcpreplay`로 패킷을 주입함.
+* **증상:** IDS(공격 탐지) DB에는 공격 이벤트가 생성되나, 방화벽(Firewall Events) UI 대시보드에는 이벤트가 전혀 노출되지 않음.
+
+---
+
+## 2. 원인 분석
+
+### ① L4 계층 (SCTP Port) 불일치
+* **2906 (오류):** 원본 패킷의 SCTP 포트.
+* **2905 (정상):** SIGTRAN/M3UA 표준 및 SecurityGen TSG 방화벽의 기본 대기(Listen) 포트.
+* 포트가 `2906`으로 유지될 경우 방화벽 데몬으로 패킷 자체가 도달하지 못함.
+
+### ② L7 계층 (M3UA Point Code) 불일치
+* **`fixed` 패킷:** `Source: 1000`, `Destination: 2000` (방화벽 미등록 값)
+* **`2.159` 패킷:** `Source: 500`, `Destination: 50` (방화벽 라우팅 등록 값)[cite: 5]
+* 방화벽 설정 파일(`tsg-fw-ss7.yaml`)의 신호 링크셋(Linkset)에 미등록된 OPC/DPC 패킷은 방화벽 검사 전 **M3UA 디코딩 단계에서 즉시 Drop**됨.
+
+### ③ `tcprewrite` 툴의 한계
+* `tcprewrite`는 L3(IP) 및 L4(SCTP Port)까지만 변환 가능.
+* L5~L7(M3UA, SCCP, MAP) 내부의 애플리케이션 페이로드는 변경되지 않으므로 M3UA Point Code는 원본 상태로 남아있게 됨.
+
+---
+
+## 3. IDS vs FW 검증 차이
+
+| 구분 | IDS (공격 탐지) | FW (방화벽) |
+| :--- | :--- | :--- |
+| **검증 방식** | 페이로드 내 공격 패턴(MAP 등) 위주 검사 | M3UA Point Code, GT, Linkset 등 프로토콜 전체 검증 |
+| **결과** | 미등록 OPC/DPC여도 패턴 일치 시 공격 ID 생성 | 유효하지 않은 신호 경로 패킷은 사전 차단(Drop) |
+| **UI 반영** | `Attacks` 대시보드 표시 | `Firewall events` 대시보드 미표시 |
+
+---
+
+## 4. 해결 작업 흐름 (Commands)
+
+```bash
+# 1. 파일 경로 확인 및 포트/IP 변환 (2906 -> 2905)
+tcprewrite --infile=fixed_1.19588.ss7_ul.pcap \
+           --outfile=/tmp/ready_19588.pcap \
+           --srcipmap=0.0.0.0/0:10.10.10.35/32 \
+           --dstipmap=0.0.0.0/0:10.10.10.106/32 \
+           --portmap=2906:2905 \
+           --enet-dmac=30:9c:23:f2:28:24 \
+           --fixcsum
+
+# 2. 방화벽 프로세스 실시간 로그 확인
+journalctl -u tsg-fw-ss7 -f --no-pager
+
+# 3. 변환 완료된 패킷 주입
+tcpreplay -i eno1.10 -M 10 --loop=5000 /tmp/ready_19588.pcap
